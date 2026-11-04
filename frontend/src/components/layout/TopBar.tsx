@@ -33,7 +33,7 @@ export const TopBar: React.FC = () => {
     if (part === 'daily') return 'Daily Journal';
     if (part === 'settings') return 'Settings';
     if (part === 'search') return 'Search';
-    if (part === 'domains') return 'Domains';
+    if (part === 'domains') return 'Knowledge Domains';
     const lower = part.toLowerCase();
     if (DOMAIN_LABELS[lower]) return DOMAIN_LABELS[lower];
     return part.charAt(0).toUpperCase() + part.slice(1);

@@ -5,6 +5,16 @@ import { Button } from '../components/ui/Button';
 import { EmptyState } from '../components/ui/EmptyState';
 import { NoteType } from '../types';
 
+const DOMAIN_LABELS: Record<string, string> = {
+  networking: 'Networking',
+  linux: 'Linux',
+  programming: 'Programming',
+  iot: 'IoT',
+  cybersecurity: 'Cybersecurity',
+  homelab: 'Homelab',
+  mathematics: 'Mathematics',
+};
+
 interface NotesListPageProps {
   fixedType?: NoteType;
 }
@@ -13,10 +23,12 @@ export const NotesListPage: React.FC<NotesListPageProps> = ({ fixedType }) => {
   const { domainSlug } = useParams<{ domainSlug?: string }>();
   const navigate = useNavigate();
 
+  const domainName = domainSlug ? DOMAIN_LABELS[domainSlug.toLowerCase()] || (domainSlug.charAt(0).toUpperCase() + domainSlug.slice(1)) : null;
+
   // Determine title and view mode
   const getPageTitle = () => {
-    if (domainSlug) {
-      return `Domain: ${domainSlug.charAt(0).toUpperCase() + domainSlug.slice(1)}`;
+    if (domainName) {
+      return `Domain: ${domainName}`;
     }
     if (fixedType === 'experiment') return 'Experiments';
     if (fixedType === 'troubleshooting') return 'Troubleshooting';
@@ -25,13 +37,21 @@ export const NotesListPage: React.FC<NotesListPageProps> = ({ fixedType }) => {
   };
 
   const getPageSubtitle = () => {
-    if (domainSlug) {
-      return `All notes, experiments, and projects associated with the ${domainSlug} knowledge domain.`;
+    if (domainName) {
+      return `All notes, experiments, and projects associated with the ${domainName} knowledge domain.`;
     }
     if (fixedType === 'experiment') return 'Structured engineering benchmarks, proof-of-concepts, and lab tests.';
     if (fixedType === 'troubleshooting') return 'Incident investigations, bug diagnostics, and root-cause analyses.';
     if (fixedType === 'project') return 'System architectures, implementations, and homelab projects.';
     return 'Master catalog of all knowledge records in your local vault.';
+  };
+
+  const getEmptyTitle = () => {
+    if (domainName) return `No ${domainName} notes found`;
+    if (fixedType === 'experiment') return 'No experiments found';
+    if (fixedType === 'troubleshooting') return 'No troubleshooting notes found';
+    if (fixedType === 'project') return 'No projects found';
+    return 'No notes found';
   };
 
   return (
@@ -78,7 +98,7 @@ export const NotesListPage: React.FC<NotesListPageProps> = ({ fixedType }) => {
       <div className="py-12 bg-canvas-surface/40 border border-dashed border-canvas-border rounded-xl">
         <EmptyState
           icon={<FileText size={24} />}
-          title={`No ${getPageTitle().toLowerCase()} found`}
+          title={getEmptyTitle()}
           description="Create your first entry to start building this section of your personal knowledge base."
           actionLabel="Create Note"
           onAction={() => {
