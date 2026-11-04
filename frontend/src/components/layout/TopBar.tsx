@@ -1,6 +1,6 @@
 import React from 'react';
 import { useLocation, Link } from 'react-router-dom';
-import { PanelLeftClose, PanelLeftOpen, Search } from 'lucide-react';
+import { PanelLeft, PanelLeftClose, Search } from 'lucide-react';
 import { useUIStore } from '../../store/useUIStore';
 
 export const TopBar: React.FC = () => {
@@ -28,9 +28,14 @@ export const TopBar: React.FC = () => {
         <button
           onClick={toggleSidebar}
           title={isSidebarCollapsed ? "Expand sidebar (Ctrl+\\)" : "Collapse sidebar (Ctrl+\\)"}
-          className="p-1.5 text-text-secondary hover:text-text-primary hover:bg-canvas-surface rounded transition-colors"
+          className={`p-1.5 rounded transition-all flex items-center gap-1.5 text-xs ${
+            isSidebarCollapsed
+              ? 'bg-canvas-surface text-accent hover:bg-canvas-elevated hover:text-accent-hover border border-canvas-border px-2.5 shadow-sm'
+              : 'text-text-secondary hover:text-text-primary hover:bg-canvas-surface'
+          }`}
         >
-          {isSidebarCollapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
+          {isSidebarCollapsed ? <PanelLeft size={17} /> : <PanelLeftClose size={17} />}
+          {isSidebarCollapsed && <span className="font-medium text-text-primary">Sidebar</span>}
         </button>
 
         {/* Breadcrumbs */}
