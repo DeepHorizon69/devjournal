@@ -20,6 +20,7 @@ DevJournal is a self-hosted, local-first, Markdown-centric engineering knowledge
 
 Detailed technical documentation is available in the [`docs/`](./docs) directory:
 
+- [**Quick Deployment Guide (`docs/QUICK_DEPLOY.md`)**](./docs/QUICK_DEPLOY.md): 1-minute quickstart for running locally or deploying on any Linux VPS / Cloud server.
 - [**System Architecture (`docs/ARCHITECTURE.md`)**](./docs/ARCHITECTURE.md): System topology, component responsibilities, Write-Then-Index synchronization contract, and crash recovery.
 - [**Database & Storage Design (`docs/DATABASE.md`)**](./docs/DATABASE.md): SQLite schema DDL, ER diagram, indexing strategy, FTS5 BM25 ranking, and reindexing protocols.
 - [**REST API Specification (`docs/API.md`)**](./docs/API.md): Complete `/api/v1` endpoint catalog, request/response models, error handling, and example payloads.
