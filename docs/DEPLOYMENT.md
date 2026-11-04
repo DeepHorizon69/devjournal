@@ -8,8 +8,8 @@ This document describes the containerized deployment architecture, Docker Compos
 
 In production, DevJournal runs as a **single, unified container** using a multi-stage Docker build:
 
-1. **Build Stage (`node:20-alpine`)**: Compiles TypeScript and packages the React SPA into static web assets (`frontend/dist/`).
-2. **Runtime Stage (`python:3.12-slim`)**: Installs FastAPI backend dependencies, mounts the compiled frontend assets, and launches the production Uvicorn server on port `8000`.
+1. **Build Stage (`node:22-alpine`)**: Compiles TypeScript and packages the React SPA into static web assets (`frontend/dist/`).
+2. **Runtime Stage (`python:3.12-slim`)**: Installs FastAPI backend dependencies alongside `curl` and `tzdata` (IANA timezone database), mounts the compiled frontend assets, and launches the single-worker production Uvicorn server (`--workers 1`) on port `8000`.
 3. **Persistent Volume (`/data`)**: Hosts the canonical Markdown vault (`/data/vault/`), the SQLite database (`/data/devjournal.db`), and timestamped hot backup archives (`/data/backups/`).
 
 ```mermaid
@@ -28,7 +28,7 @@ Create `Dockerfile` in the root repository directory:
 
 ```dockerfile
 # Stage 1: Build Frontend Assets
-FROM node:20-alpine AS frontend-builder
+FROM node:22-alpine AS frontend-builder
 WORKDIR /build
 COPY frontend/package*.json ./
 RUN npm ci
@@ -39,9 +39,10 @@ RUN npm run build
 FROM python:3.12-slim AS runtime
 WORKDIR /app
 
-# Install system dependencies
+# Install system dependencies (curl for healthcheck, tzdata for IANA ZoneInfo)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
+    tzdata \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
@@ -56,6 +57,7 @@ COPY --from=frontend-builder /build/dist/ ./frontend-dist/
 ENV DEVJOURNAL_DATA_DIR=/data \
     DEVJOURNAL_FRONTEND_DIST_DIR=/app/frontend-dist \
     DEVJOURNAL_LOG_LEVEL=INFO \
+    DEVJOURNAL_TIMEZONE=UTC \
     PYTHONUNBUFFERED=1
 
 EXPOSE 8000
@@ -64,7 +66,7 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
   CMD curl -f http://127.0.0.1:8000/api/v1/system/health || exit 1
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
 ```
 
 ### 2.2 `docker-compose.yml`
@@ -72,8 +74,6 @@ CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
 Create `docker-compose.yml` in the root repository directory:
 
 ```yaml
-version: '3.8'
-
 services:
   devjournal:
     build:
@@ -87,6 +87,7 @@ services:
     environment:
       - DEVJOURNAL_DATA_DIR=/data
       - DEVJOURNAL_LOG_LEVEL=INFO
+      - DEVJOURNAL_TIMEZONE=UTC
     volumes:
       # Mount host directory for complete data persistence
       - ./devjournal-data:/data
@@ -122,6 +123,7 @@ services:
 | `DEVJOURNAL_DATA_DIR` | `/data` (in container) | Root directory containing `vault/`, `devjournal.db`, and `backups/`. |
 | `DEVJOURNAL_FRONTEND_DIST_DIR` | `/app/frontend-dist` | Filesystem location of compiled React SPA assets. |
 | `DEVJOURNAL_LOG_LEVEL` | `INFO` | Python logging level (`DEBUG`, `INFO`, `WARNING`, `ERROR`). |
+| `DEVJOURNAL_TIMEZONE` | `UTC` | IANA timezone name used when resolving "today" for Daily Journal entries (e.g., `America/New_York`, `Asia/Jakarta`). |
 | `DEVJOURNAL_CORS_ORIGINS` | `["http://localhost:5173", "http://localhost:8000"]` | Allowed CORS origins (JSON array). |
 
 ---
@@ -131,12 +133,12 @@ services:
 ### 5.1 Hot Backup (While Running)
 You can take a hot snapshot without stopping the application in two ways:
 
-1. **Via UI**: Navigate to **Settings $\rightarrow$ Data Management** and click **Download Backup Archive (.zip)**.
+1. **Via UI**: Navigate to **Settings $\rightarrow$ Backup, Restore & Markdown Import** and click **Create & Download Backup**.
 2. **Via API**:
    ```bash
    curl -X POST http://127.0.0.1:8000/api/v1/system/backup
    ```
-   This invokes SQLite's native `sqlite3.Connection.backup()` to create a transactionally consistent copy of `devjournal.db` while packaging `vault/` into a timestamped `.zip` file inside `./devjournal-data/backups/`.
+   This invokes SQLite's native `sqlite3.Connection.backup()` under `db_write_lock` to create a transactionally consistent copy of `devjournal.db` alongside `backup-manifest.json` (with SHA-256 checksums) and `vault/` inside a timestamped `.zip` file in `./devjournal-data/backups/`.
 
 ### 5.2 Cold Backup (Filesystem Sync)
 To backup your vault directly using standard Linux utilities (e.g., `rsync`, `rclone`, or Git):
@@ -155,7 +157,7 @@ If your server hardware fails or `devjournal.db` is corrupted:
    ```bash
    docker compose up -d
    ```
-4. The backend startup scanner will automatically detect all Markdown notes on disk and rebuild `devjournal.db` and the FTS5 search index from scratch in under 3 seconds.
+4. The backend startup reconciler will automatically detect all Markdown notes on disk and rebuild `devjournal.db` and the FTS5 search index from scratch.
 
 ---
 

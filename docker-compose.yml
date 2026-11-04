@@ -1,0 +1,22 @@
+services:
+  devjournal:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: devjournal
+    restart: unless-stopped
+    ports:
+      # By default, bind to localhost only for security
+      - "127.0.0.1:8000:8000"
+    environment:
+      - DEVJOURNAL_DATA_DIR=/data
+      - DEVJOURNAL_LOG_LEVEL=INFO
+      - DEVJOURNAL_TIMEZONE=UTC
+    volumes:
+      # Mount host directory for complete data persistence
+      - ./devjournal-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:8000/api/v1/system/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3

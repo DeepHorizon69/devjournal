@@ -56,6 +56,8 @@ export const NoteRow: React.FC<NoteRowProps> = ({
   onTogglePin,
   compact = false,
 }) => {
+  const isPinned = note.is_pinned;
+
   return (
     <div
       role="button"
@@ -83,17 +85,17 @@ export const NoteRow: React.FC<NoteRowProps> = ({
             }}
           >
             <IconButton
-              label={note.is_pinned ? 'Unpin note' : 'Pin note'}
+              label={isPinned ? 'Unpin note' : 'Pin note'}
               size="xs"
-              variant={note.is_pinned ? 'active' : 'ghost'}
+              variant={isPinned ? 'active' : 'ghost'}
               className={clsx(
-                !note.is_pinned && 'opacity-40 group-hover:opacity-100'
+                !isPinned && 'opacity-40 group-hover:opacity-100'
               )}
               icon={<Pin size={12} />}
             />
           </div>
         ) : (
-          note.is_pinned && (
+          isPinned && (
             <Pin size={13} className="text-accent mt-1 shrink-0" aria-label="Pinned" />
           )
         )}
