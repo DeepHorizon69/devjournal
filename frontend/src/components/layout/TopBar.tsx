@@ -1,13 +1,28 @@
 import React from 'react';
 import { useLocation, Link } from 'react-router-dom';
-import { PanelLeft, PanelLeftClose, Search } from 'lucide-react';
+import { PanelLeft, PanelLeftClose, Menu, Search } from 'lucide-react';
 import { useUIStore } from '../../store/useUIStore';
+import { IconButton } from '../ui/IconButton';
+
+const DOMAIN_LABELS: Record<string, string> = {
+  networking: 'Networking',
+  linux: 'Linux',
+  programming: 'Programming',
+  iot: 'IoT',
+  cybersecurity: 'Cybersecurity',
+  homelab: 'Homelab',
+  mathematics: 'Mathematics',
+};
 
 export const TopBar: React.FC = () => {
-  const { isSidebarCollapsed, toggleSidebar, setCommandPaletteOpen } = useUIStore();
+  const {
+    isSidebarCollapsed,
+    toggleSidebar,
+    setMobileDrawerOpen,
+    setCommandPaletteOpen,
+  } = useUIStore();
   const location = useLocation();
 
-  // Generate simple breadcrumbs from path
   const pathParts = location.pathname.split('/').filter(Boolean);
 
   const formatBreadcrumb = (part: string) => {
@@ -18,44 +33,70 @@ export const TopBar: React.FC = () => {
     if (part === 'daily') return 'Daily Journal';
     if (part === 'settings') return 'Settings';
     if (part === 'search') return 'Search';
-    if (part === 'domains') return 'Knowledge Domains';
+    if (part === 'domains') return 'Domains';
+    const lower = part.toLowerCase();
+    if (DOMAIN_LABELS[lower]) return DOMAIN_LABELS[lower];
     return part.charAt(0).toUpperCase() + part.slice(1);
   };
 
   return (
-    <header className="h-12 border-b border-canvas-border bg-canvas-sidebar/40 backdrop-blur-sm px-4 flex items-center justify-between shrink-0 select-none">
-      <div className="flex items-center gap-3">
-        <button
-          onClick={toggleSidebar}
-          title={isSidebarCollapsed ? "Expand sidebar (Ctrl+\\)" : "Collapse sidebar (Ctrl+\\)"}
-          className={`p-1.5 rounded transition-all flex items-center gap-1.5 text-xs ${
-            isSidebarCollapsed
-              ? 'bg-canvas-surface text-accent hover:bg-canvas-elevated hover:text-accent-hover border border-canvas-border px-2.5 shadow-sm'
-              : 'text-text-secondary hover:text-text-primary hover:bg-canvas-surface'
-          }`}
-        >
-          {isSidebarCollapsed ? <PanelLeft size={17} /> : <PanelLeftClose size={17} />}
-          {isSidebarCollapsed && <span className="font-medium text-text-primary">Sidebar</span>}
-        </button>
+    <header className="h-11 border-b border-canvas-border bg-canvas-sidebar/60 backdrop-blur-sm px-4 flex items-center justify-between gap-4 shrink-0 select-none">
+      {/* Left: Sidebar Toggle & Breadcrumb Context */}
+      <div className="flex items-center gap-2.5 min-w-0">
+        {/* Mobile Drawer Toggle (< 768px) */}
+        <div className="md:hidden">
+          <IconButton
+            label="Open navigation menu"
+            size="sm"
+            icon={<Menu size={16} />}
+            onClick={() => setMobileDrawerOpen(true)}
+          />
+        </div>
 
-        {/* Breadcrumbs */}
-        <nav className="flex items-center gap-1.5 text-xs text-text-secondary">
-          <Link to="/" className="hover:text-text-primary transition-colors">
-            Workspace
+        {/* Desktop Sidebar Toggle (>= 768px) */}
+        <div className="hidden md:block">
+          <IconButton
+            label={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            shortcut="Ctrl+\"
+            size="sm"
+            icon={
+              isSidebarCollapsed ? (
+                <PanelLeft size={16} />
+              ) : (
+                <PanelLeftClose size={16} />
+              )
+            }
+            onClick={toggleSidebar}
+          />
+        </div>
+
+        <span className="h-3.5 w-[1px] bg-canvas-border shrink-0" aria-hidden="true" />
+
+        {/* Breadcrumb Trail */}
+        <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-xs text-text-secondary truncate">
+          <Link
+            to="/"
+            className="hover:text-text-primary transition-colors duration-fast truncate"
+          >
+            Overview
           </Link>
           {pathParts.length > 0 && <span className="text-text-muted">/</span>}
           {pathParts.map((part, index) => {
             const isLast = index === pathParts.length - 1;
-            const to = '/' + pathParts.slice(0, index + 1).join('/');
+            const isDomainsRoot = part === 'domains' && pathParts.length > 1;
+            const to = isDomainsRoot ? '/notes' : '/' + pathParts.slice(0, index + 1).join('/');
             return (
-              <React.Fragment key={to}>
+              <React.Fragment key={`${part}-${index}`}>
                 {isLast ? (
-                  <span className="font-medium text-text-primary">
+                  <span className="font-medium text-text-primary truncate">
                     {formatBreadcrumb(part)}
                   </span>
                 ) : (
                   <>
-                    <Link to={to} className="hover:text-text-primary transition-colors">
+                    <Link
+                      to={to}
+                      className="hover:text-text-primary transition-colors duration-fast truncate"
+                    >
                       {formatBreadcrumb(part)}
                     </Link>
                     <span className="text-text-muted">/</span>
@@ -67,14 +108,20 @@ export const TopBar: React.FC = () => {
         </nav>
       </div>
 
-      <div className="flex items-center gap-2">
+      {/* Right: Unified Global Quick Search Entry Point */}
+      <div className="flex items-center gap-2 shrink-0">
         <button
+          type="button"
           onClick={() => setCommandPaletteOpen(true)}
-          className="flex items-center gap-2 px-2.5 py-1 text-xs text-text-secondary bg-canvas-surface hover:bg-canvas-elevated border border-canvas-border rounded-md transition-colors"
+          aria-label="Global Quick Search (Ctrl+K)"
+          className="flex items-center justify-between gap-3 h-7 px-2.5 text-xs text-text-secondary bg-canvas-surface hover:bg-canvas-elevated border border-canvas-border hover:border-canvas-borderHover rounded-md transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
         >
-          <Search size={14} className="text-text-muted" />
-          <span>Quick Search...</span>
-          <kbd className="text-[10px] bg-canvas-app border border-canvas-border px-1.5 py-0.5 rounded text-text-muted">
+          <span className="flex items-center gap-1.5">
+            <Search size={13} className="text-text-muted shrink-0" />
+            <span className="hidden sm:inline">Quick Search...</span>
+            <span className="sm:hidden">Search</span>
+          </span>
+          <kbd className="text-[10px] font-mono bg-canvas-app border border-canvas-border px-1.5 py-0.5 rounded text-text-muted leading-none">
             Ctrl+K
           </kbd>
         </button>

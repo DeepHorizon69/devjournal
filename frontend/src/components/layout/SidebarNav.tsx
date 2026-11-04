@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavLink, Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
   FileText,
@@ -16,28 +16,34 @@ import {
   Sigma,
   Settings,
   Plus,
-  Search,
   CheckCircle2,
   AlertTriangle,
-  PanelLeftClose
+  X,
 } from 'lucide-react';
+import { clsx } from 'clsx';
 import { useQuery } from '@tanstack/react-query';
 import { useUIStore } from '../../store/useUIStore';
 import { api } from '../../api/client';
+import { NavigationItem } from '../ui/NavigationItem';
 import { Button } from '../ui/Button';
+import { IconButton } from '../ui/IconButton';
+import { Tooltip } from '../ui/Tooltip';
 
 export const SidebarNav: React.FC = () => {
-  const { isSidebarCollapsed, toggleSidebar, setCommandPaletteOpen } = useUIStore();
+  const {
+    isSidebarCollapsed,
+    isMobileDrawerOpen,
+    setMobileDrawerOpen,
+    openNewNoteModal,
+  } = useUIStore();
   const navigate = useNavigate();
 
-  // Query system health
   const { data: health, isError } = useQuery({
     queryKey: ['system-health'],
     queryFn: api.getHealth,
     refetchInterval: 30000,
   });
 
-  // Query taxonomy counts
   const { data: taxonomy } = useQuery({
     queryKey: ['taxonomy'],
     queryFn: api.getTaxonomy,
@@ -45,7 +51,7 @@ export const SidebarNav: React.FC = () => {
   });
 
   const workspaceNav = [
-    { name: 'Overview', to: '/', icon: LayoutDashboard, count: undefined },
+    { name: 'Overview', to: '/', icon: LayoutDashboard, count: undefined, end: true },
     { name: 'All Notes', to: '/notes', icon: FileText, count: taxonomy?.total_active },
     { name: 'Experiments', to: '/experiments', icon: FlaskConical, count: taxonomy?.types?.['experiment'] },
     { name: 'Troubleshooting', to: '/troubleshooting', icon: Wrench, count: taxonomy?.types?.['troubleshooting'] },
@@ -63,166 +69,257 @@ export const SidebarNav: React.FC = () => {
     { name: 'Mathematics', to: '/domains/mathematics', icon: Sigma, count: taxonomy?.domains?.['Mathematics'] },
   ];
 
-  return (
-    <aside
-      className={`h-screen bg-canvas-sidebar flex flex-col shrink-0 transition-[width] duration-200 ease-in-out select-none overflow-hidden ${
-        isSidebarCollapsed ? 'w-0 border-r-0' : 'w-64 border-r border-canvas-border'
-      }`}
-    >
-      <div className="w-64 h-full flex flex-col shrink-0">
-        {/* Brand Header */}
-        <div className="p-4 border-b border-canvas-border flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-accent/15 border border-accent/30 flex items-center justify-center text-accent font-bold text-sm tracking-wider shadow-sm">
+  const handleNewNote = () => {
+    setMobileDrawerOpen(false);
+    openNewNoteModal();
+    navigate('/notes?new=true');
+  };
+
+  const handleNavClick = () => {
+    if (isMobileDrawerOpen) {
+      setMobileDrawerOpen(false);
+    }
+  };
+
+  const vaultStatusLabel = isError
+    ? 'Vault: Offline'
+    : health?.status === 'ok'
+    ? 'Vault: Online'
+    : 'Connecting...';
+
+  const renderSidebarContent = (collapsed: boolean, isMobile = false) => (
+    <div className="flex flex-col h-full w-full select-none overflow-hidden">
+      {/* Application Identity Header (44px aligned with TopBar) */}
+      <div
+        className={clsx(
+          'h-11 border-b border-canvas-border flex items-center shrink-0 overflow-hidden',
+          collapsed ? 'justify-center px-0' : 'justify-between px-3'
+        )}
+      >
+        {collapsed ? (
+          <Tooltip content="DevJournal — Local Workspace" side="right">
+            <Link
+              to="/"
+              aria-label="DevJournal Local Workspace"
+              onClick={handleNavClick}
+              className="w-8 h-8 rounded-md bg-accent/15 border border-accent/30 flex items-center justify-center text-accent font-mono font-semibold text-xs shrink-0 focus-visible:rounded"
+            >
+              DJ
+            </Link>
+          </Tooltip>
+        ) : (
+          <Link
+            to="/"
+            onClick={handleNavClick}
+            className="flex items-center gap-2.5 min-w-0 focus-visible:rounded"
+          >
+            <div className="w-7 h-7 rounded-md bg-accent/15 border border-accent/30 flex items-center justify-center text-accent font-mono font-semibold text-xs shrink-0">
               DJ
             </div>
-            <div>
-              <h1 className="text-sm font-bold text-text-primary tracking-tight">DevJournal</h1>
-              <p className="text-[11px] text-text-muted">Local Workspace</p>
+            <div className="min-w-0">
+              <h1 className="text-[13px] font-semibold text-text-primary tracking-tight leading-none truncate">
+                DevJournal
+              </h1>
+              <p className="text-[11px] text-text-muted leading-none mt-1 truncate">
+                Local Workspace
+              </p>
             </div>
           </Link>
-          <button
-            onClick={toggleSidebar}
-            title="Collapse sidebar (Ctrl+\)"
-            className="p-1.5 text-text-muted hover:text-text-primary hover:bg-canvas-surface rounded-md transition-colors"
-          >
-            <PanelLeftClose size={16} />
-          </button>
-        </div>
+        )}
 
-        {/* Primary Actions */}
-        <div className="p-3 border-b border-canvas-border/50 flex flex-col gap-2">
-          <Button
-            variant="primary"
+        {isMobile && (
+          <IconButton
+            label="Close navigation drawer"
             size="sm"
-            className="w-full justify-center"
-            icon={<Plus size={16} />}
-            onClick={() => navigate('/notes?new=true')}
+            icon={<X size={16} />}
+            onClick={() => setMobileDrawerOpen(false)}
+          />
+        )}
+      </div>
+
+      {/* Primary Action: New Note */}
+      <div
+        className={clsx(
+          'py-2.5 border-b border-canvas-border/60 shrink-0 overflow-hidden',
+          collapsed ? 'flex justify-center px-0' : 'px-2.5'
+        )}
+      >
+        {collapsed ? (
+          <IconButton
+            label="New Note"
+            shortcut="Alt+N"
+            tooltipSide="right"
+            variant="surface"
+            size="md"
+            className="w-9 h-8"
+            icon={<Plus size={16} className="text-accent" />}
+            onClick={handleNewNote}
+          />
+        ) : (
+          <Button
+            variant="surface"
+            size="sm"
+            className="w-full justify-between px-2.5"
+            icon={<Plus size={15} className="text-accent" />}
+            trailingIcon={
+              <kbd className="text-[10px] font-mono text-text-muted bg-canvas-app px-1 py-0.5 rounded border border-canvas-border">
+                Alt+N
+              </kbd>
+            }
+            onClick={handleNewNote}
           >
             New Note
           </Button>
-          <button
-            onClick={() => setCommandPaletteOpen(true)}
-            className="w-full flex items-center justify-between px-3 py-1.5 text-xs text-text-secondary bg-canvas-surface hover:bg-canvas-elevated border border-canvas-border rounded-md transition-colors"
-          >
-            <span className="flex items-center gap-2">
-              <Search size={14} className="text-text-muted" />
-              <span>Search</span>
-            </span>
-            <kbd className="text-[10px] text-text-muted bg-canvas-app px-1.5 py-0.5 rounded border border-canvas-border">
-              Ctrl+K
-            </kbd>
-          </button>
-        </div>
+        )}
+      </div>
 
-        {/* Nav Scroll Area */}
-        <div className="flex-1 overflow-y-auto px-2 py-3 space-y-6">
-          {/* Workspace Navigation */}
-          <div>
-            <div className="px-2 pb-1.5 text-[11px] font-semibold text-text-muted tracking-wider uppercase">
+      {/* Scrollable Navigation Groups */}
+      <div
+        className={clsx(
+          'flex-1 overflow-y-auto overflow-x-hidden py-2.5',
+          collapsed ? 'px-0 space-y-2' : 'px-2 space-y-4'
+        )}
+      >
+        {/* Workspace Group */}
+        <div>
+          {!collapsed && (
+            <div className="px-2 pb-1 text-[11px] font-medium text-text-muted tracking-wide truncate">
               Workspace
             </div>
-            <nav className="space-y-0.5">
-              {workspaceNav.map((item) => (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  end={item.to === '/'}
-                  className={({ isActive }) =>
-                    `flex items-center justify-between px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                      isActive
-                        ? 'bg-accent/15 text-accent border border-accent/25'
-                        : 'text-text-secondary hover:text-text-primary hover:bg-canvas-surface'
-                    }`
-                  }
-                >
-                  <div className="flex items-center gap-2.5 truncate">
-                    <item.icon size={16} className="shrink-0" />
-                    <span className="truncate">{item.name}</span>
-                  </div>
-                  {item.count !== undefined && item.count > 0 && (
-                    <span className="text-[10px] font-mono text-text-muted px-1.5 py-0.5 rounded bg-canvas-app border border-canvas-border">
-                      {item.count}
-                    </span>
-                  )}
-                </NavLink>
-              ))}
-            </nav>
-          </div>
-
-          {/* Knowledge Domains */}
-          <div>
-            <div className="px-2 pb-1.5 text-[11px] font-semibold text-text-muted tracking-wider uppercase">
-              Knowledge Domains
-            </div>
-            <nav className="space-y-0.5">
-              {knowledgeDomains.map((domain) => (
-                <NavLink
-                  key={domain.to}
-                  to={domain.to}
-                  className={({ isActive }) =>
-                    `flex items-center justify-between px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                      isActive
-                        ? 'bg-accent/15 text-accent border border-accent/25'
-                        : 'text-text-secondary hover:text-text-primary hover:bg-canvas-surface'
-                    }`
-                  }
-                >
-                  <div className="flex items-center gap-2.5 truncate">
-                    <domain.icon size={16} className="shrink-0" />
-                    <span className="truncate">{domain.name}</span>
-                  </div>
-                  {domain.count !== undefined && domain.count > 0 && (
-                    <span className="text-[10px] font-mono text-text-muted px-1.5 py-0.5 rounded bg-canvas-app border border-canvas-border">
-                      {domain.count}
-                    </span>
-                  )}
-                </NavLink>
-              ))}
-            </nav>
-          </div>
+          )}
+          <nav aria-label="Workspace navigation" className="space-y-0.5">
+            {workspaceNav.map((item) => (
+              <NavigationItem
+                key={item.to}
+                name={item.name}
+                to={item.to}
+                icon={item.icon}
+                count={item.count}
+                end={item.end}
+                collapsed={collapsed}
+                onClick={handleNavClick}
+              />
+            ))}
+          </nav>
         </div>
 
-        {/* Footer Navigation & Health Status */}
-        <div className="p-3 border-t border-canvas-border space-y-2 shrink-0">
-          <NavLink
-            to="/settings"
-            className={({ isActive }) =>
-              `flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                isActive
-                  ? 'bg-accent/15 text-accent border border-accent/25'
-                  : 'text-text-secondary hover:text-text-primary hover:bg-canvas-surface'
-              }`
-            }
-          >
-            <Settings size={16} />
-            <span>Settings</span>
-          </NavLink>
+        {collapsed && (
+          <div
+            className="mx-auto w-6 h-[1px] bg-canvas-border"
+            role="separator"
+            aria-hidden="true"
+          />
+        )}
 
-          {/* Health Status Pill */}
-          <div className="pt-1 px-2.5 flex items-center justify-between text-[11px] text-text-muted">
-            <span className="flex items-center gap-1.5">
+        {/* Knowledge Domains Group */}
+        <div>
+          {!collapsed && (
+            <div className="px-2 pb-1 text-[11px] font-medium text-text-muted tracking-wide truncate">
+              Knowledge Domains
+            </div>
+          )}
+          <nav aria-label="Knowledge domains" className="space-y-0.5">
+            {knowledgeDomains.map((domain) => (
+              <NavigationItem
+                key={domain.to}
+                name={domain.name}
+                to={domain.to}
+                icon={domain.icon}
+                count={domain.count}
+                collapsed={collapsed}
+                onClick={handleNavClick}
+              />
+            ))}
+          </nav>
+        </div>
+      </div>
+
+      {/* Anchored Footer: Settings & Vault Status */}
+      <div
+        className={clsx(
+          'py-2 border-t border-canvas-border space-y-1.5 shrink-0 bg-canvas-sidebar overflow-hidden',
+          collapsed ? 'px-0' : 'px-2'
+        )}
+      >
+        <NavigationItem
+          name="Settings"
+          to="/settings"
+          icon={Settings}
+          collapsed={collapsed}
+          onClick={handleNavClick}
+        />
+
+        {/* Vault Status Row */}
+        {collapsed ? (
+          <div className="flex justify-center w-full">
+            <Tooltip content={vaultStatusLabel} side="right">
+              <div
+                tabIndex={0}
+                aria-label={vaultStatusLabel}
+                className="flex items-center justify-center h-7 w-9 rounded text-text-muted hover:bg-canvas-surface/60 transition-colors focus-visible:rounded"
+              >
+                {isError ? (
+                  <AlertTriangle size={14} className="text-status-danger" />
+                ) : health?.status === 'ok' ? (
+                  <CheckCircle2 size={14} className="text-status-success" />
+                ) : (
+                  <span className="w-2 h-2 rounded-full bg-status-warning animate-pulse" />
+                )}
+              </div>
+            </Tooltip>
+          </div>
+        ) : (
+          <div className="px-2.5 py-1 flex items-center justify-between text-[11px] text-text-muted truncate">
+            <span className="flex items-center gap-1.5 truncate">
               {isError ? (
                 <>
-                  <AlertTriangle size={12} className="text-rose-400" />
-                  <span className="text-rose-400">Vault: Offline</span>
+                  <AlertTriangle size={12} className="text-status-danger shrink-0" />
+                  <span className="text-status-danger truncate">Vault: Offline</span>
                 </>
               ) : health?.status === 'ok' ? (
                 <>
-                  <CheckCircle2 size={12} className="text-emerald-400" />
-                  <span className="text-text-secondary">Vault: Online</span>
+                  <CheckCircle2 size={12} className="text-status-success shrink-0" />
+                  <span className="text-text-secondary truncate">Vault: Online</span>
                 </>
               ) : (
                 <>
-                  <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-                  <span>Connecting...</span>
+                  <span className="w-2 h-2 rounded-full bg-status-warning animate-pulse shrink-0" />
+                  <span className="truncate">Connecting...</span>
                 </>
               )}
             </span>
-            <span className="font-mono text-[10px]">v0.1.0</span>
+            <span className="font-mono text-[10px] shrink-0">v0.1.0</span>
           </div>
-        </div>
+        )}
       </div>
-    </aside>
+    </div>
+  );
+
+  return (
+    <>
+      {/* Desktop Sidebar (Expanded 240px or Collapsed 60px Icon Rail) */}
+      <aside
+        aria-label="Primary Sidebar"
+        className={clsx(
+          'hidden md:flex flex-col h-screen bg-canvas-sidebar border-r border-canvas-border shrink-0 overflow-hidden transition-[width] duration-panel ease-in-out',
+          isSidebarCollapsed ? 'w-[60px]' : 'w-60'
+        )}
+      >
+        {renderSidebarContent(isSidebarCollapsed, false)}
+      </aside>
+
+      {/* Mobile & Tablet Responsive Drawer (< 768px) */}
+      {isMobileDrawerOpen && (
+        <div className="fixed inset-0 z-50 flex md:hidden" role="dialog" aria-modal="true">
+          <div
+            className="fixed inset-0 bg-black/60 backdrop-blur-[1px]"
+            onClick={() => setMobileDrawerOpen(false)}
+          />
+          <aside className="relative z-10 flex flex-col w-60 max-w-[80vw] h-full bg-canvas-sidebar border-r border-canvas-border shadow-2xl overflow-hidden">
+            {renderSidebarContent(false, true)}
+          </aside>
+        </div>
+      )}
+    </>
   );
 };

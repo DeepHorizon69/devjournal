@@ -2,10 +2,16 @@ import React, { useEffect } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 import { SidebarNav } from './SidebarNav';
 import { TopBar } from './TopBar';
+import { ToastContainer } from '../ui/Toast';
 import { useUIStore } from '../../store/useUIStore';
 
 export const AppShell: React.FC = () => {
-  const { toggleSidebar, setCommandPaletteOpen } = useUIStore();
+  const {
+    toggleSidebar,
+    setCommandPaletteOpen,
+    openNewNoteModal,
+    setMobileDrawerOpen,
+  } = useUIStore();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -15,17 +21,27 @@ export const AppShell: React.FC = () => {
         e.preventDefault();
         toggleSidebar();
       }
-      // Quick search: Ctrl+K or Cmd+K
+      // Global Quick Search: Ctrl+K or Cmd+K
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         setCommandPaletteOpen(true);
         navigate('/search');
       }
+      // Quick New Note: Alt+N
+      if (e.altKey && e.key.toLowerCase() === 'n') {
+        e.preventDefault();
+        openNewNoteModal();
+        navigate('/notes?new=true');
+      }
+      // Close mobile drawer on Escape
+      if (e.key === 'Escape') {
+        setMobileDrawerOpen(false);
+      }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [toggleSidebar, setCommandPaletteOpen, navigate]);
+  }, [toggleSidebar, setCommandPaletteOpen, openNewNoteModal, setMobileDrawerOpen, navigate]);
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-canvas-app text-text-primary">
@@ -36,6 +52,7 @@ export const AppShell: React.FC = () => {
           <Outlet />
         </main>
       </div>
+      <ToastContainer />
     </div>
   );
 };
